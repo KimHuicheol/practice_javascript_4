@@ -1,5 +1,10 @@
 'use strict';
+
 let correctAnswerCount = 0;                                                                             //正解解答数格納用の変数宣言
+let count = 0;                                                                                          //取得クイズカウント用変数宣言
+let questionNumber = 1;                                                                                 //クイズNo.格納用変数宣言
+const quizList = [];
+
 class Quiz {                                                                                            //Quizクラス定義
   constructor(category, difficulty, question, answerA, answerB, answerC, answerD) {                      //コンストラクター定義
     this.category = category;                                                                            //カテゴリプロパティ
@@ -61,97 +66,86 @@ class Quiz {                                                                    
     });
   }
 }
+
 window.addEventListener('load', () => {                                                                  //画面ロード後の処理
   const startQuiz = document.getElementById('start-quiz');                                                //開始ボタンノード取得
   const title = document.getElementById('title');                                                         //タイトルノード取得
   const operation = document.getElementById('operation');                                                 //問題文出力用ノード取得
-  let count = 0;                                                                                          //取得クイズカウント用変数宣言
-  let questionNumber = 1;                                                                                 //クイズNo.格納用変数宣言
-  startQuiz.addEventListener('click', main);                                                              //開始ボタン押下時処理
 
-  function main() {                                                                                       //メイン関数実行
-    const promise =                                                                                        //非同期処理実行
-      new Promise((resolve, reject) => {                                                                    //待機処理
-        title.textContent = '取得中';                                                                        //タイトルノード文字列修正
-        operation.textContent = '少々お待ちください';                                                        //質問文出力用ノード文字列修正
-        startQuiz.remove();                                                                                  //開始ボタン削除
-        setTimeout(resolve, 3000);                                                                           //タイマー関数-3000ms後、満足処理実行
-      })
-      .then(() => {                                                                                         //満足処理
-        sendApiRequest();                                                                                    //APIリクエスト送信関数実行
-      })
-      .catch(() => {                                                                                        //拒絶処理
-        console.log('rejectされました');
-      })
+  startQuiz.addEventListener('click', async () => {                                                       //開始ボタン押下時処理
+    try{
+      title.textContent = '取得中';
+      operation.textContetn = '少々お待ちください';
+      startQuiz.remove();
+      await sendApiRequest();
+    } 
+    catch(e) {
+      console.error(`rejectされました。理由 => ${e}`);
+    }
+  });
+  
+  async function sendApiRequest() {                                                                             //APIリクエスト送信関数実行
+    try {
+      const response = await fetch('https://opentdb.com/api.php?amount=10&type=multiple')                       //リクエスト送信
+      if(!response.ok) {
+        new Error('エラーレスポンス');
+      }
+      const json = await response.json()                                                                        //JSON抽出-クイズ一覧取得
+      json.results.forEach((quizData) => {
+        quizList.push(
+          new Quiz(
+            quizData.category,
+            quizData.difficulty,
+            quizData.question,
+            quizData.correct_answer,
+            quizData.incorrect_answers[0],
+            quizData.incorrect_answers[1],
+            quizData.incorrect_answers[2]
+          )
+        )
+      });
+      quizList[0].outDisplay();
+      title.textContent = `問題${questionNumber}`;                                                      //タイトルノード編集
+      selectAnswer();                                                                                   //解答関数実行
+    }
+    catch(e) {
+      conosole.error(e);
+    } 
   }
 
-  function sendApiRequest() {                                                                             //APIリクエスト送信関数実行  
-    fetch('https://opentdb.com/api.php?amount=10&type=multiple')                                           //リクエスト送信
-      .then(response => {                                                                                   //レスポンスオブジェクト取得
-        if(!response.ok) {                                                                                   //レスポンスオブジェクト取得異常終了時処理
-          console.error('エラーレスポンス', response);
+  function selectAnswer() {                                                                         //解答関数-解答ボタン押下時処理
+    const selectedAnswers = document.getElementsByTagName('input')                                   //動的生成されたinputノードの取得
+    for (let selectedAnswer of selectedAnswers) {                                                    //解答選択肢1~4押下時処理
+      selectedAnswer.addEventListener('click', () => {
+
+        category.remove();                                                                           //カテゴリ消去
+        difficulty.remove();                                                                         //難易度消去
+        btnA.remove();                                                                               //解答選択肢-1消去
+        btnB.remove();                                                                               //解答選択肢-2消去
+        btnC.remove();                                                                               //解答選択肢-3消去
+        btnD.remove();                                                                               //解答選択肢-4消去
+
+        count++;                                                                                     //取得クイズ数カウントインクリメント
+        questionNumber++;                                                                            //クイズNo.インクリメント
+
+        if(count < 10) {                                                                             //クイズ一覧存在時処理
+          title.textContent = `問題${questionNumber}`;                                                //タイトル列編集
+          quizList[count].outDisplay();                                                                //クイズ画面出力メソッド実行
+          selectAnswer();                                                                             //解答関数実行
         }
-        else {                                                                                               //レスポンスオブジェクト取得正常終了時処理
-          return response.json().then(quizList => {                                                           //JSON抽出-クイズ一覧取得
-
-            const quizzes = [];                                                                                //クイズ一覧格納用の配列宣言
-            for(let i = 0; i < 10; i++){                                                                       //インスタンス生成したクイズ一覧を配列に格納
-              quizzes.push(
-                new Quiz(
-                quizList.results[i].category,
-                quizList.results[i].difficulty,
-                quizList.results[i].question,
-                quizList.results[i].correct_answer,
-                quizList.results[i].incorrect_answers[0],
-                quizList.results[i].incorrect_answers[1],
-                quizList.results[i].incorrect_answers[2]
-                )
-              )
-            }
-            quizzes[0].outDisplay();                                                                          //クイズ画面出力メソッド実行
-            title.textContent = `問題${questionNumber}`;                                                      //タイトルノード編集
-            selectAnswer();                                                                                   //解答関数実行
-            
-            function selectAnswer() {                                                                         //解答関数-解答ボタン押下時処理
-              const selectedAnswers = document.getElementsByTagName('input')                                   //動的生成されたinputノードの取得
-              for (let selectedAnswer of selectedAnswers) {                                                    //解答選択肢1~4押下時処理
-                selectedAnswer.addEventListener('click', () => {
-
-                  category.remove();                                                                           //カテゴリ消去
-                  difficulty.remove();                                                                         //難易度消去
-                  btnA.remove();                                                                               //解答選択肢-1消去
-                  btnB.remove();                                                                               //解答選択肢-2消去
-                  btnC.remove();                                                                               //解答選択肢-3消去
-                  btnD.remove();                                                                               //解答選択肢-4消去
-
-                  count++;                                                                                     //取得クイズ数カウントインクリメント
-                  questionNumber++;                                                                            //クイズNo.インクリメント
-
-                  if(count < 10) {                                                                             //クイズ一覧存在時処理
-                    title.textContent = `問題${questionNumber}`;                                                //タイトル列編集
-                    quizzes[count].outDisplay();                                                                //クイズ画面出力メソッド実行
-                    selectAnswer();                                                                             //解答関数実行
-                  }
-                  else {                                                                                      //結果出力画面表示処理
-                    title.textContent = `あなたの正答数は${correctAnswerCount}です！！`;                       //タイトル出力ノード編集
-                    operation.textContent = '再度チャレンジしたい場合は以下をクリック！！';                    //問題文出力ノード編集
-                    const homeBtn = document.createElement('input');                                           //リロードボタン用の要素作成
-                    homeBtn.type = 'button';                                                                   //リロードボタン用のタイプ設定
-                    homeBtn.id = 'homeBtn';                                                                    //リロードボタン用のID設定
-                    homeBtn.value = 'ホームに戻る';                                                            //リロードボタン用の値設定
-                    document.body.appendChild(homeBtn);                                                        //リロードボタン出力
-                    document.getElementById('homeBtn').addEventListener('click', () => {                       //リロードボタン押下時処理
-                      window.location.reload();                                                                 //リロード処理実行
-                    });
-                  }
-                });
-               }
-             }
+        else {                                                                                      //結果出力画面表示処理
+          title.textContent = `あなたの正答数は${correctAnswerCount}です！！`;                       //タイトル出力ノード編集
+          operation.textContent = '再度チャレンジしたい場合は以下をクリック！！';                    //問題文出力ノード編集
+          const homeBtn = document.createElement('input');                                           //リロードボタン用の要素作成
+          homeBtn.type = 'button';                                                                   //リロードボタン用のタイプ設定
+          homeBtn.id = 'homeBtn';                                                                    //リロードボタン用のID設定
+          homeBtn.value = 'ホームに戻る';                                                            //リロードボタン用の値設定
+          document.body.appendChild(homeBtn);                                                        //リロードボタン出力
+          document.getElementById('homeBtn').addEventListener('click', () => {                       //リロードボタン押下時処理
+            window.location.reload();                                                                 //リロード処理実行
           });
         }
-      })
-      .catch(error => {                                                                                    //リクエスト送信異常終了時処理
-        console.log(error);
       });
+    }
   }
 });
